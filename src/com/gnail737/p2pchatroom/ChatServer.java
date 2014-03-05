@@ -122,11 +122,11 @@ public class ChatServer {
 		for (Iterator<Integer> i = keySet.iterator(); i.hasNext(); ) {
 			mChatClientResources.get(i.next()).cleanUp();
 		}
-		try {
-			mLoopThread.join(2000);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+//		try {
+//			mLoopThread.join(2000);
+//		} catch (InterruptedException e) {
+//			e.printStackTrace();
+//		}
 	}
 	
 	public void sendMessages( final String msg) {
