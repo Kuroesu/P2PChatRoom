@@ -9,7 +9,12 @@ import java.util.concurrent.BlockingQueue;
 import android.net.nsd.NsdServiceInfo;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.app.Activity;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.util.Log;
 import android.view.Menu;
 import android.view.View;
@@ -22,7 +27,7 @@ import android.widget.Switch;
 import android.widget.TextView;
 
 public class ChatActivity extends Activity {
-
+	private final String TAG = "ChatActiivty";
 	Handler mainHandler;
 	NsdHelper nsdHelper;
 	TextView debugView;
@@ -31,8 +36,38 @@ public class ChatActivity extends Activity {
 	
 	ChatServer server;
 	ChatClient client;
-    BlockingQueue<String> sendLines;
     
+	private ChatService mBoundService;
+	private boolean mIsBound = false;
+	private ServiceConnection mConnection = new ServiceConnection() {
+
+
+		public void onServiceConnected(ComponentName className, IBinder service) {
+			mBoundService = ((ChatService.ChatBinder)service).getService();
+			Log.i(TAG, "Service is bounded!!!");
+			mBoundService.toastOk();
+		}
+		
+		public void onServiceDisconnected(ComponentName className) {
+			mBoundService = null;
+		}
+	};
+	
+	private void doBindService() {
+		bindService(new Intent(this, ChatService.class), mConnection, Context.BIND_AUTO_CREATE);
+		mIsBound = true;
+	}
+	
+	private void doUnbindService() {
+		if (mIsBound){
+			unbindService(mConnection);
+			mIsBound = false;
+		}
+	}
+	
+	private void startChatRoomService() {
+		startService(new Intent(this, ChatService.class));
+	}
 	String debugMessageCache = "\n";
 	public static int PORT = 5134;
     @Override
@@ -54,6 +89,9 @@ public class ChatActivity extends Activity {
         sendBtn.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
+				//debuging code
+				mBoundService.toastOk();
+				startChatRoomService();
 				if (server != null) {
 					server.sendMessages(et.getText().toString());
 				}
@@ -180,6 +218,7 @@ public class ChatActivity extends Activity {
     @Override
     protected void onDestroy() {
     	//clean up our Nsd Service upon exit
+    	doUnbindService();
     	super.onDestroy();
     }
     @Override
@@ -189,6 +228,7 @@ public class ChatActivity extends Activity {
     		//nsdHelper.stopDiscoverServices();
     		nsdHelper.registerService(PORT);;
     	}
+    	doBindService();
     }
     
     @Override

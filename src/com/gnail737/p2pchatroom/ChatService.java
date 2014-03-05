@@ -10,6 +10,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
+import android.widget.Toast;
 
 public class ChatService extends Service {
 
@@ -60,6 +61,7 @@ public class ChatService extends Service {
 	@Override
 	public void onCreate() {
 		//start up thread runnig service
+		Log.i(TAG, " here in onCreate method !!!");
 		HandlerThread mhThread = new HandlerThread("mServiceHandlerThread", android.os.Process.THREAD_PRIORITY_BACKGROUND);
 		mhThread.start();
 		
@@ -86,25 +88,28 @@ public class ChatService extends Service {
 	public int onStartCommand(Intent in, int flags, int startId) {
 		Log.i(TAG, "here we are in start command with startid = "+startId);
 		Bundle bundle = in.getExtras();
-		//for each start request send mesages to start job with startId initialized in message body
-		if (SERVER_TYPE.equals(bundle.getString(REQ_TYPE))){	
-			//start a Server Job
-			Message msg = mServiceHandler.obtainMessage(SERVER);
-			msg.arg1 = startId;
-			mServiceHandler.sendMessage(msg);
-			
-		} else if (CLIENT_TYPE.equals(bundle.getString(REQ_TYPE))) {
-			//start a Client Job
-			Message msg = mServiceHandler.obtainMessage(CLIENT);
-			msg.arg1 = startId;
-			mServiceHandler.sendMessage(msg);
+		if (bundle != null) { //there are chances for NULL intent when process is resurrected after being destroyed by MountainView
+			//for each start request send mesages to start job with startId initialized in message body
+			if (SERVER_TYPE.equals(bundle.getString(REQ_TYPE))){	
+				//start a Server Job
+				Message msg = mServiceHandler.obtainMessage(SERVER);
+				msg.arg1 = startId;
+				mServiceHandler.sendMessage(msg);
+				
+			} else if (CLIENT_TYPE.equals(bundle.getString(REQ_TYPE))) {
+				//start a Client Job
+				Message msg = mServiceHandler.obtainMessage(CLIENT);
+				msg.arg1 = startId;
+				mServiceHandler.sendMessage(msg);
+			}
 		}
 		return START_STICKY;
 	}
 	
 	@Override
 	public void onDestroy() {
-		
+		Log.i(TAG," Before service is destroyed!!");
+		super.onDestroy();
 	}
 	
 	//following are classes used for communicating with activity
@@ -114,5 +119,9 @@ public class ChatService extends Service {
 	
 	public void postCreateNewClient() {
 		
+	}
+	//do dummy toast
+	public void toastOk() {
+		Toast.makeText(this, "Here we are successfully accessing server!!", Toast.LENGTH_LONG).show();
 	}
 }
