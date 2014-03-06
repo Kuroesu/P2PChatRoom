@@ -67,15 +67,6 @@ public class SenderHandler extends HandlerThread {
 	}
 	
 	public void cleanUp() {
-//		if (mSocket != null) { //we previously had a connection do cleanup first
-//			try {
-//				//mark outputstream also
-//				netOutput.close();
-//				mSocket.close();
-//			} catch (IOException e) {
-//				e.printStackTrace();
-//			}
-//		}
 		if (mHandler != null) {
 			mHandler.removeMessages(SEND);
 		}

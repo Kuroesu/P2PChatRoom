@@ -14,8 +14,40 @@ public class ChatClient extends ChatServer{
 	private final String TAG = "ChatClient";
 	ChatNetResourceBundle chatResource = null;
 	public ChatClient(Handler main, UICallbacks calls) {
+		
 		super(main, calls);
-		// TODO Auto-generated constructor stub
+		sh = new SenderHandler(new SenderHandler.HandlerCallbacks() {
+			@Override
+			public void doneSendingMessage(final String msg) {
+				mHandler.post(new Runnable(){
+					@Override
+					public void run() {
+						cbs.sendMessageToUI("Me said: "+msg);
+					}});	
+			}
+		});
+		rh = new ReceiverHandler(new ReceiverHandler.HandlerCallbacks() {
+			@Override
+			public void hadReceivedNewMessage(final String bundle,
+					final String msg) {
+				mHandler.post(new Runnable() {
+					@Override
+					public void run() {
+						cbs.sendMessageToUI(bundle+" said : "+msg);
+					}
+				});
+			}
+			@Override
+			public void onReceiverReadingError(int uid) {
+				chatResource.cleanUp();
+				chatResource = null;
+			}
+		});
+		//get Looper ready
+		sh.start();
+		rh.start();
+		sh.getLooper();
+		rh.getLooper();
 	}
 	
     protected void init(final Socket serverSock) {
@@ -28,44 +60,13 @@ public class ChatClient extends ChatServer{
 					} catch (IOException e) {
 						Log.e(TAG, "Cannot initialized Client Resource !!");
 						e.printStackTrace();
+						return;
 					}
-					sh = new SenderHandler(new SenderHandler.HandlerCallbacks() {
-						@Override
-						public void doneSendingMessage(final String msg) {
-							mHandler.post(new Runnable(){
-								@Override
-								public void run() {
-									cbs.sendMessageToUI("Me said: "+msg);
-								}});	
-						}
-					});
-					rh = new ReceiverHandler(new ReceiverHandler.HandlerCallbacks() {
-						@Override
-						public void hadReceivedNewMessage(final String bundle,
-								final String msg) {
-							mHandler.post(new Runnable() {
-								@Override
-								public void run() {
-									cbs.sendMessageToUI(bundle+" said : "+msg);
-								}
-							});
-						}
-						@Override
-						public void onReceiverReadingError(int uid) {
-							// TODO Error Recovery 
-						}
-					});
-					
-					sh.start();
-					rh.start();
-					sh.getLooper();
-					rh.getLooper();
 					chatResource = ChatNetResourceBundle.clone(cnrb);
-					//push first message for looper
+					//push first message for receiving looper 
 					if (cnrb != null) {
 					   rh.postNewMessage(cnrb);
-					}
-					
+					}	
 				}
 			}).start();
     }
@@ -81,6 +82,16 @@ public class ChatClient extends ChatServer{
 			  sh.postNewMessage(bundle);
 		  }
 	}
+    @Override
+    public void cleanUp() {
+    	if (chatResource != null) {
+    		chatResource.cleanUp();
+			chatResource = null;
+    	}
+    	//just need to exit looper 
+    	sh.cleanUp();
+		rh.cleanUp();
+    }
 //	Socket mSocket;
 //	public synchronized Socket getmSocket() {
 //		return mSocket;

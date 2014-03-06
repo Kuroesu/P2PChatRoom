@@ -64,8 +64,10 @@ public class ChatServer {
 				});
 			}
 			@Override
-			public void onReceiverReadingError(int uid) {
-				// TODO Auto-generated method stub
+			public void onReceiverReadingError(final int uid) {
+				//the pipe is broken, need to remove
+				mChatClientResources.get(Integer.valueOf(uid)).cleanUp();
+				mChatClientResources.remove(Integer.valueOf(uid));
 			}
 		});
 		

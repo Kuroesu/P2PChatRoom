@@ -30,8 +30,8 @@ public class ChatService extends Service {
 	HandlerThread mhThread;
 	private final IBinder mChatBinder = new ChatBinder();
 	
-	private ChatServer server;
-	private ChatClient client;
+	private ChatServer server = null;
+	private ChatClient client = null;
 	private Handler mMainHandler;
 	private ChatServer.UICallbacks mUICallback;
 	private NsdServiceInfo mNsdItem;
@@ -51,30 +51,28 @@ public class ChatService extends Service {
 			
 			if (msg.what == SERVER) {//do server initialization
 				if(mMainHandler != null && mUICallback != null) {
-					server = new ChatServer(mMainHandler, mUICallback);
+					if (server == null) server = new ChatServer(mMainHandler, mUICallback);
 					server.init();
 				}
 			}
 			else if (msg.what == CLIENT) {//do client initialization
 				if(mMainHandler != null && mUICallback != null) {
-					if (mNsdItem != null) {//it should be properly initialized
-						try {
-							Socket serverSock = new Socket(mNsdItem.getHost(), mNsdItem.getPort());
-							client = new ChatClient(mMainHandler, mUICallback);
-							client.init(serverSock);
-						} catch(IOException e) {
-							Log.e(TAG, "Client Socket Initialization Error!!");
-							e.printStackTrace();
-						}
+					mNsdItem = (NsdServiceInfo)msg.obj;
+					try {
+						Socket serverSock = new Socket(mNsdItem.getHost(), mNsdItem.getPort());
+						if (client == null) client = new ChatClient(mMainHandler, mUICallback);
+						client.init(serverSock);
+					} catch(IOException e) {
+						Log.e(TAG, "Client Socket Initialization Error!!");
+						e.printStackTrace();
 					}
 				}
 			}
-			
-			//do we need to stop after init?
-			//stopSelf();
-		}
-		
+		}		
+		//do we need to stop after init?
+		//stopSelf();
 	}
+		
 	@Override
 	public IBinder onBind(Intent i) {
 		return mChatBinder;
@@ -140,7 +138,7 @@ public class ChatService extends Service {
 	//to ensure nItem is initialized before ServiceHandler Loop need to send message here 
 	public void initAndPostForClient(NsdServiceInfo nItem) {
 		mNsdItem = nItem;
-		Message msg = mServiceHandler.obtainMessage(CLIENT);
+		Message msg = mServiceHandler.obtainMessage(CLIENT, (Object)nItem);
 		mServiceHandler.sendMessage(msg);
 	}
 	
