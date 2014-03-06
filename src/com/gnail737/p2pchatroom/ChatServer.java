@@ -93,7 +93,6 @@ public class ChatServer {
 								public void run() {
 									cbs.sendMessageToUI("New client connected!! ["+clientSock.getInetAddress().toString()+"]");
 							}});
-	
 							//for each client to maintain a place in event loop, the first message must be fired to trigger subsequent messages.
 							rh.postNewMessage(cnrb);
 						} catch (IOException e) {
@@ -112,7 +111,7 @@ public class ChatServer {
 		public void sendMessageToUI(final String msg);
 	}
 	
-	private void cleanUp() {
+	public void cleanUp() {
 		//clean up Server Loop, Receiver, Sender Looper thread
 		mLoopThread.interrupt();
 		sh.cleanUp();

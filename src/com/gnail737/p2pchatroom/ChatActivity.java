@@ -29,13 +29,11 @@ import android.widget.TextView;
 public class ChatActivity extends Activity {
 	private final String TAG = "ChatActiivty";
 	Handler mainHandler;
+	ChatServer.UICallbacks mCallbacks;
 	NsdHelper nsdHelper;
 	TextView debugView;
 	//ListView listView;
 	//ChatterRoomAdapter mAdapter;
-	
-	ChatServer server;
-	ChatClient client;
     
 	private ChatService mBoundService;
 	private boolean mIsBound = false;
@@ -46,6 +44,7 @@ public class ChatActivity extends Activity {
 			mBoundService = ((ChatService.ChatBinder)service).getService();
 			Log.i(TAG, "Service is bounded!!!");
 			mBoundService.toastOk();
+			mBoundService.initAll(mainHandler, mCallbacks);
 		}
 		
 		public void onServiceDisconnected(ComponentName className) {
@@ -65,15 +64,21 @@ public class ChatActivity extends Activity {
 		}
 	}
 	
-	private void startChatRoomService() {
-		startService(new Intent(this, ChatService.class));
+	private void startChatRoomService(String type) {
+		Intent i = new Intent(this, ChatService.class);
+		Bundle extra = new Bundle();
+		extra.putString(ChatService.REQ_TYPE, type);
+		i.putExtras(extra);
+		startService(i);
 	}
+	
 	String debugMessageCache = "\n";
 	public static int PORT = 5134;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+		mainHandler = new Handler();
         //setuping up views
         Switch registerSth = (Switch)findViewById(R.id.registerSwitch);
         Switch discoverSth = (Switch)findViewById(R.id.discoverySwitch);
@@ -90,16 +95,13 @@ public class ChatActivity extends Activity {
 			@Override
 			public void onClick(View v) {
 				//debuging code
-				mBoundService.toastOk();
-				startChatRoomService();
-				if (server != null) {
-					server.sendMessages(et.getText().toString());
-				}
-				if (client != null) {
-					client.sendMessages(et.getText().toString());
-					//et.setText("");
-				}
-				if (server != null || client != null) {
+				//mBoundService.toastOk();
+				//Null check is done inside Service Object
+				
+			    mBoundService.postMessageToServer(et.getText().toString());
+				mBoundService.postMessageToClient(et.getText().toString());
+				
+				if (mBoundService.hasServerOrClient()) {
 					et.setText("");
 				}
 			}
@@ -138,41 +140,14 @@ public class ChatActivity extends Activity {
 			@Override
 			public void notifyRegistrationComplete() {
 				//now we are ready to start a server
-				server = new ChatServer(mainHandler, new ChatServer.UICallbacks() {
-					@Override
-					public void sendMessageToUI(String msg) {
-						StringBuilder sb = new StringBuilder(debugMessageCache);
-						sb.append("\n"+msg);
-						debugMessageCache = sb.toString();
-						debugView.setText(debugMessageCache);
-					}
-				});
-				server.init();
+				startChatRoomService(ChatService.SERVER_TYPE);
 			}
 			@Override
 			public void notifyDiscoveredOneItem(final NsdServiceInfo NsdItem) {
-				client = new ChatClient(mainHandler, new ChatServer.UICallbacks() {
-					@Override
-					public void sendMessageToUI(String msg) {
-						StringBuilder sb = new StringBuilder(debugMessageCache);
-						sb.append("\n"+msg);
-						debugMessageCache = sb.toString();
-						debugView.setText(debugMessageCache);
-					}
-				});
-				
-					new Thread(new Runnable() {
-						@Override
-						public void run() {
-							try {
-						    Log.i(TAG, " trying to connect to address" + NsdItem.getHost().toString()+" : "+NsdItem.getPort());
-							client.init(new Socket(NsdItem.getHost(), NsdItem.getPort()));
-							} catch (IOException e) {
-								Log.e(TAG , "Cannot create client Socket!!");
-								e.printStackTrace();
-							}
-						}
-					}).start();
+				Log.i(TAG, " trying to connect to address" + NsdItem.getHost().toString()+" : "+NsdItem.getPort());
+			    mBoundService.initAndPostForClient(NsdItem);
+			    //don't need to use startCommand to launch client because the timing of NsdItem initialization is uncertain 
+				//startChatRoomService(ChatService.CLIENT_TYPE);
 				
 //				List<NsdServiceInfo> mList = nsdHelper.getmServiceList();
 //				mAdapter.setChatterList(mList);
@@ -188,21 +163,16 @@ public class ChatActivity extends Activity {
 				
 			}
 		};
-		mainHandler = new Handler();
+
 		nsdHelper = new NsdHelper(this, mainHandler, mListener);
-		ChatServer.UICallbacks mCallback = new ChatServer.UICallbacks() {
+		
+		mCallbacks = new ChatServer.UICallbacks() {
 			@Override
-			public void sendMessageToUI(final String msg) {
-				StringBuilder sb = new StringBuilder(debugView.getText());
-				sb.append(msg);
-				debugView.setText(sb.toString());
-				sv.post(new Runnable() {
-					@Override
-					public void run() {
-						// TODO Auto-generated method stub
-						
-					}
-				});
+			public void sendMessageToUI(String msg) {
+				StringBuilder sb = new StringBuilder(debugMessageCache);
+				sb.append("\n"+msg);
+				debugMessageCache = sb.toString();
+				debugView.setText(debugMessageCache);
 			}
 		};
     }
