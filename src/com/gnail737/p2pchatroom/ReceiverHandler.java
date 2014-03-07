@@ -42,7 +42,7 @@ public class ReceiverHandler extends HandlerThread {
 	    }
 	    
 		public ReceiverHandler(HandlerCallbacks hcb) {
-			super(TAG);
+			super(TAG, android.os.Process.THREAD_PRIORITY_BACKGROUND);
 			handlerCallbacks = hcb;
 		}
 		@Override

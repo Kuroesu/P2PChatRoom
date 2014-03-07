@@ -29,19 +29,6 @@ public class ChatServer {
 		mHandler = main;
 		cbs = calls;
 		mChatClientResources = Collections.synchronizedMap(new HashMap<Integer, ChatNetResourceBundle>());
-	}
-	
-	protected void init() {
-		final ServerSocket sSock;
-		//initiates server socket accepting loop:
-		try {
-			sSock = new ServerSocket(ChatActivity.PORT);
-		} catch (IOException e) {
-			Log.e(TAG , "ServerSocket init failed !!!");
-			e.printStackTrace();
-			return;
-		}
-		
 		sh = new SenderHandler(new SenderHandler.HandlerCallbacks() {
 			@Override
 			public void doneSendingMessage(final String msg) {
@@ -70,16 +57,30 @@ public class ChatServer {
 				mChatClientResources.remove(Integer.valueOf(uid));
 			}
 		});
-		
 		sh.start();
 		rh.start();
 		sh.getLooper();
 		rh.getLooper();
+	}
+	
+	protected void init() {
+		final ServerSocket sSock;
+		//initiates server socket accepting loop:
+		try {
+			sSock = new ServerSocket(ChatActivity.PORT);
+		} catch (IOException e) {
+			Log.e(TAG , "ServerSocket init failed !!!");
+			e.printStackTrace();
+			return;
+		}
 		
 		runLoop(sSock);
 	}
 	@SuppressWarnings("resource")
     void runLoop(final ServerSocket sSock) {
+		    if (mLoopThread != null) {
+		    	mLoopThread.interrupt();
+		    }
 			mLoopThread = new Thread(new Runnable() {
 				@Override
 				public void run() {
@@ -97,13 +98,18 @@ public class ChatServer {
 							}});
 							//for each client to maintain a place in event loop, the first message must be fired to trigger subsequent messages.
 							rh.postNewMessage(cnrb);
+							Thread.sleep(2000);
 						} catch (IOException e) {
 							Log.e(TAG, "in Server Accepting new Connections Errors!!!");
 							e.printStackTrace();
+						} catch (InterruptedException e) {
+							Log.e(TAG, "we are interrupted!!!");
+							e.printStackTrace();
+							return;
 						} finally{
 							//TO-DO: may need to do something about releasing resource
 						}
-					}while (!Thread.interrupted());
+					}while (true);
 				}
 			});	
 			mLoopThread.start();
@@ -123,11 +129,11 @@ public class ChatServer {
 		for (Iterator<Integer> i = keySet.iterator(); i.hasNext(); ) {
 			mChatClientResources.get(i.next()).cleanUp();
 		}
-		try {
-			mLoopThread.join(2000);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+//		try {
+//			mLoopThread.join(2000);
+//		} catch (InterruptedException e) {
+//			e.printStackTrace();
+//		}
 	}
 	
 	public void sendMessages( final String msg) {
@@ -153,5 +159,12 @@ public class ChatServer {
 				cbs.sendMessageToUI("Debug from ["+className.substring(className.indexOf("Chat"))+"]: "+msg);
 			}
 		});
+	}
+
+	public boolean needToInitThread() {
+		// TODO Auto-generated method stub
+		if (mLoopThread == null) return true;
+		else
+			return !mLoopThread.isAlive();
 	}
 }

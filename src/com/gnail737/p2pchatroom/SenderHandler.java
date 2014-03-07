@@ -44,7 +44,7 @@ public class SenderHandler extends HandlerThread {
 	}
 	
 	public SenderHandler(HandlerCallbacks hcb) {
-		super(TAG);
+		super(TAG, android.os.Process.THREAD_PRIORITY_BACKGROUND);
 		handlerCallback = hcb;
 	}
 	@Override

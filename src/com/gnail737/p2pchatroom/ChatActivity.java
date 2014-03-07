@@ -36,25 +36,24 @@ public class ChatActivity extends Activity {
 	//ChatterRoomAdapter mAdapter;
     
 	private ChatService mBoundService;
-	private boolean mIsBound = false;
+	private static boolean mIsBound = false;
 	private ServiceConnection mConnection = new ServiceConnection() {
-
-
+		
 		public void onServiceConnected(ComponentName className, IBinder service) {
 			mBoundService = ((ChatService.ChatBinder)service).getService();
 			Log.i(TAG, "Service is bounded!!!");
-			mBoundService.toastOk();
 			mBoundService.initAll(mainHandler, mCallbacks);
 		}
-		
 		public void onServiceDisconnected(ComponentName className) {
 			mBoundService = null;
 		}
 	};
 	
 	private void doBindService() {
-		bindService(new Intent(this, ChatService.class), mConnection, Context.BIND_AUTO_CREATE);
-		mIsBound = true;
+		if (!mIsBound) {
+			bindService(new Intent(this, ChatService.class), mConnection, Context.BIND_AUTO_CREATE);
+			mIsBound = true;
+		}
 	}
 	
 	private void doUnbindService() {
@@ -188,7 +187,6 @@ public class ChatActivity extends Activity {
     @Override
     protected void onDestroy() {
     	//clean up our Nsd Service upon exit
-    	doUnbindService();
     	super.onDestroy();
     }
     @Override
@@ -219,6 +217,7 @@ public class ChatActivity extends Activity {
     	if (nsdHelper.isRegistered()) {
     		nsdHelper.unRegisterService();
     	}
+    	doUnbindService();
     	super.onStop();
     }
 }

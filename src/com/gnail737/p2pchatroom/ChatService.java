@@ -51,8 +51,13 @@ public class ChatService extends Service {
 			
 			if (msg.what == SERVER) {//do server initialization
 				if(mMainHandler != null && mUICallback != null) {
-					if (server == null) server = new ChatServer(mMainHandler, mUICallback);
-					server.init();
+					if (server == null) {
+						server = new ChatServer(mMainHandler, mUICallback);
+						server.init();
+					} else if (server.needToInitThread()) {
+						server.init();
+					}
+					
 				}
 			}
 			else if (msg.what == CLIENT) {//do client initialization
