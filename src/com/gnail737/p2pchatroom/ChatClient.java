@@ -13,29 +13,20 @@ public class ChatClient extends ChatServer{
 
 	private final String TAG = "ChatClient";
 	ChatNetResourceBundle chatResource = null;
-	public ChatClient(Handler main, UICallbacks calls) {
+	public ChatClient(UICallbacks calls) {
 		
-		super(main, calls);
+		super(calls);
 		sh = new SenderHandler(new SenderHandler.HandlerCallbacks() {
 			@Override
 			public void doneSendingMessage(final String msg) {
-				mHandler.post(new Runnable(){
-					@Override
-					public void run() {
-						cbs.sendMessageToUI("Me said: "+msg);
-					}});	
+				cbs.sendMessageToUI("Me said: "+msg);
 			}
 		});
 		rh = new ReceiverHandler(new ReceiverHandler.HandlerCallbacks() {
 			@Override
 			public void hadReceivedNewMessage(final String bundle,
 					final String msg) {
-				mHandler.post(new Runnable() {
-					@Override
-					public void run() {
-						cbs.sendMessageToUI(bundle+" said : "+msg);
-					}
-				});
+				cbs.sendMessageToUI(bundle+" said : "+msg);
 			}
 			@Override
 			public void onReceiverReadingError(int uid) {
@@ -50,25 +41,14 @@ public class ChatClient extends ChatServer{
 		rh.getLooper();
 	}
 	
-    protected void init(final Socket serverSock) {
-			new Thread(new Runnable() {
-				@Override
-				public void run() {
-					ChatNetResourceBundle cnrb = null;
-					try {
-						cnrb = new ChatNetResourceBundle(serverSock);
-					} catch (IOException e) {
-						Log.e(TAG, "Cannot initialized Client Resource !!");
-						e.printStackTrace();
-						return;
-					}
-					chatResource = ChatNetResourceBundle.clone(cnrb);
-					//push first message for receiving looper 
-					if (cnrb != null) {
-					   rh.postNewMessage(cnrb);
-					}	
-				}
-			}).start();
+    protected void init(final Socket serverSock) throws IOException {
+		ChatNetResourceBundle cnrb = null;
+		cnrb = new ChatNetResourceBundle(serverSock);
+		chatResource = ChatNetResourceBundle.clone(cnrb);
+		//push first message for receiving looper 
+		if (cnrb != null) {
+			rh.postNewMessage(cnrb);
+		}	
     }
     
     @Override

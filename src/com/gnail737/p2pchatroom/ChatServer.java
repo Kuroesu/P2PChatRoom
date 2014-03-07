@@ -18,37 +18,28 @@ import android.util.Log;
 public class ChatServer {
 	protected ReceiverHandler rh;
 	protected SenderHandler sh;
-    protected Handler mHandler = null;
 	protected final UICallbacks cbs; 
     private final String TAG = "ChatServer";
     Thread mLoopThread = null;
+    Socket clientSock = null;
 	//use this map to maintain globally available client lists, must be synchronized
     private Map<Integer, ChatNetResourceBundle> mChatClientResources;
+	private ServerSocket sSock = null;
     
-	public ChatServer(Handler main, final UICallbacks calls) {
-		mHandler = main;
+	public ChatServer(final UICallbacks calls) {
 		cbs = calls;
 		mChatClientResources = Collections.synchronizedMap(new HashMap<Integer, ChatNetResourceBundle>());
 		sh = new SenderHandler(new SenderHandler.HandlerCallbacks() {
 			@Override
 			public void doneSendingMessage(final String msg) {
-				mHandler.post(new Runnable(){
-					@Override
-					public void run() {
-						cbs.sendMessageToUI("Me said: "+msg);
-					}});	
+				cbs.sendMessageToUI("Me said: "+msg);	
 			}
 		});
 		//After received new client immediately start listening to it by posting new Handler Message
 		rh = new ReceiverHandler(new ReceiverHandler.HandlerCallbacks() {
 			@Override
 			public void hadReceivedNewMessage(final String bundle, final String message) {
-				mHandler.post(new Runnable() {
-					@Override
-					public void run() {
-						cbs.sendMessageToUI(bundle+" said : "+message);
-					}
-				});
+				cbs.sendMessageToUI(bundle+" said : "+message);
 			}
 			@Override
 			public void onReceiverReadingError(final int uid) {
@@ -61,67 +52,68 @@ public class ChatServer {
 		rh.start();
 		sh.getLooper();
 		rh.getLooper();
+		Log.i(TAG, "Server successfully created!!");
 	}
 	
-	protected void init() {
-		final ServerSocket sSock;
+	protected void init() throws IOException{
 		//initiates server socket accepting loop:
-		try {
-			sSock = new ServerSocket(ChatActivity.PORT);
-		} catch (IOException e) {
-			Log.e(TAG , "ServerSocket init failed !!!");
-			e.printStackTrace();
-			return;
-		}
+		sSock  = new ServerSocket(ChatActivity.PORT);
 		
 		runLoop(sSock);
+		Log.i(TAG, "Server successfully initialized!!");
 	}
 	@SuppressWarnings("resource")
     void runLoop(final ServerSocket sSock) {
-		    if (mLoopThread != null) {
-		    	mLoopThread.interrupt();
+		    if (mLoopThread != null&& mLoopThread.isAlive()) {
+		    	try {
+					sSock.close();
+					//only wait for three seconds until it dies
+					mLoopThread.join(3000);
+		    	} catch (IOException e) {
+					e.printStackTrace();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}	
 		    }
 			mLoopThread = new Thread(new Runnable() {
 				@Override
 				public void run() {
-					do {//run loop for server
-						try {
-							final Socket clientSock = sSock.accept();
+					
+					try {
+						do {//run loop for server
+							clientSock = sSock.accept();
 							//after we have a new client socket initialize tcp resource
 							final ChatNetResourceBundle cnrb = new ChatNetResourceBundle(clientSock); 
 							//adding our key-value pair to hashMap
 							mChatClientResources.put(Integer.valueOf(cnrb.getUID()), cnrb);
-							mHandler.post(new Runnable(){
-								@Override
-								public void run() {
-									cbs.sendMessageToUI("New client connected!! ["+clientSock.getInetAddress().toString()+"]");
-							}});
+							if (cbs != null) //there are chances that cbs is null we cannot avoid it
+								cbs.sendMessageToUI("New client connected!! ["+clientSock.getInetAddress().toString()+"]");
 							//for each client to maintain a place in event loop, the first message must be fired to trigger subsequent messages.
 							rh.postNewMessage(cnrb);
-							Thread.sleep(2000);
-						} catch (IOException e) {
-							Log.e(TAG, "in Server Accepting new Connections Errors!!!");
+						}while (true);
+					} catch (IOException e) { //if we have exception we are out!!
+							Log.e(TAG, "having exception in accepting Loops now we are out!!!");
 							e.printStackTrace();
-						} catch (InterruptedException e) {
-							Log.e(TAG, "we are interrupted!!!");
-							e.printStackTrace();
-							return;
-						} finally{
-							//TO-DO: may need to do something about releasing resource
-						}
-					}while (true);
+					} finally{
+							//cbs.notifyErrors(1);
+					}
 				}
 			});	
 			mLoopThread.start();
 	}
-	
 	public interface UICallbacks {
 		public void sendMessageToUI(final String msg);
+
+		public void notifyErrors(int errCode);
 	}
-	
 	public void cleanUp() {
 		//clean up Server Loop, Receiver, Sender Looper thread
-		mLoopThread.interrupt();
+		try {
+			if (sSock!=null) sSock.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		//mLoopThread.interrupt();
 		sh.cleanUp();
 		rh.cleanUp();
 		//clean up cache
@@ -129,11 +121,6 @@ public class ChatServer {
 		for (Iterator<Integer> i = keySet.iterator(); i.hasNext(); ) {
 			mChatClientResources.get(i.next()).cleanUp();
 		}
-//		try {
-//			mLoopThread.join(2000);
-//		} catch (InterruptedException e) {
-//			e.printStackTrace();
-//		}
 	}
 	
 	public void sendMessages( final String msg) {
@@ -152,13 +139,8 @@ public class ChatServer {
 	}
 	
 	private void debugMessage(final String msg) {
-		mHandler.post(new Runnable() {
-			@Override
-			public void run() {
-				String className = ChatServer.this.toString();
-				cbs.sendMessageToUI("Debug from ["+className.substring(className.indexOf("Chat"))+"]: "+msg);
-			}
-		});
+		String className = ChatServer.this.toString();
+		cbs.sendMessageToUI("Debug from ["+className.substring(className.indexOf("Chat"))+"]: "+msg);
 	}
 
 	public boolean needToInitThread() {

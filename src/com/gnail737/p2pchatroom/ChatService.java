@@ -14,12 +14,15 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
+import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 public class ChatService extends Service {
 
 	public static final int SERVER = 0;
 	public static final int CLIENT = 1;
+	public static final int CLEAN_UP = 2;
 	public static final String REQ_TYPE = "com.gnail737.p2pchatroom.REQTYPE";
 	public static final String SERVER_TYPE = "Server";
 	public static final String CLIENT_TYPE = "Client";
@@ -32,9 +35,23 @@ public class ChatService extends Service {
 	
 	private ChatServer server = null;
 	private ChatClient client = null;
-	private Handler mMainHandler;
 	private ChatServer.UICallbacks mUICallback;
 	private NsdServiceInfo mNsdItem;
+	private String debugMessageCache = "\n";
+	private TextView mTextBean = null;
+	
+	
+	public String copyOfDebugCache() {
+		return new String(debugMessageCache);
+	}
+	
+	public synchronized TextView getmTextBean() {
+		return mTextBean;
+	}
+
+	public synchronized void setmTextBean(final TextView mTextBean) {
+		this.mTextBean = mTextBean;
+	}
 	
 	public class ChatBinder extends Binder {
 		ChatService getService() {
@@ -50,34 +67,51 @@ public class ChatService extends Service {
 			//start our chat server and client here
 			
 			if (msg.what == SERVER) {//do server initialization
-				if(mMainHandler != null && mUICallback != null) {
-					if (server == null) {
-						server = new ChatServer(mMainHandler, mUICallback);
-						server.init();
-					} else if (server.needToInitThread()) {
-						server.init();
-					}
-					
+				if (server != null) return;
+				
+				server = new ChatServer(mUICallback);
+				try{
+					server.init();
+				} catch (IOException e) {
+					Log.e(TAG , "ServerSocket init failed !!!");
+					e.printStackTrace();
+					server.cleanUp();
+					server = null;
+					//but we need to restart server in this case
+					initAndPostForServer();
+					return;
 				}
 			}
 			else if (msg.what == CLIENT) {//do client initialization
-				if(mMainHandler != null && mUICallback != null) {
-					mNsdItem = (NsdServiceInfo)msg.obj;
-					try {
-						Socket serverSock = new Socket(mNsdItem.getHost(), mNsdItem.getPort());
-						if (client == null) client = new ChatClient(mMainHandler, mUICallback);
-						client.init(serverSock);
-					} catch(IOException e) {
-						Log.e(TAG, "Client Socket Initialization Error!!");
-						e.printStackTrace();
-					}
+				mNsdItem = (NsdServiceInfo)msg.obj;
+				try {
+					Socket serverSock = new Socket(mNsdItem.getHost(), mNsdItem.getPort()); 
+					client = new ChatClient(mUICallback);
+					client.init(serverSock);
+				} catch(IOException e) {
+					Log.e(TAG, "Client Socket Initialization Error!!");
+					e.printStackTrace();
+					client.cleanUp();
+					client = null;
+					//trying to reinit client but only for a 3 times
+					msg.arg1 = msg.arg1-1;
+					if (msg.arg1 > 0) initAndPostForClient(msg);
+					return;
 				}
 			}
+			else if (msg.what == CLEAN_UP) {
+				
+			}
+		
 		}		
 		//do we need to stop after init?
 		//stopSelf();
 	}
-		
+	// 0 --meaning everything fine, 1 meaning server is disconnected, 2 meaning client disconnected	
+	// 3 meaning both server and clients are disconnected
+	public int checkHealthy() {
+		return 0;
+	}
 	@Override
 	public IBinder onBind(Intent i) {
 		return mChatBinder;
@@ -87,26 +121,44 @@ public class ChatService extends Service {
 	public void onCreate() {
 		//start up thread runnig service
 		Log.i(TAG, " here in onCreate method !!!");
+		mUICallback = new ChatServer.UICallbacks() {
+			@Override
+			public void sendMessageToUI(final String msg) {
+				//this must run on UI thread
+				new Handler(Looper.getMainLooper()).post(new Runnable() {
+					@Override
+					public void run() {
+						StringBuilder sb = new StringBuilder(debugMessageCache);
+						sb.append("\n"+msg);
+						debugMessageCache = sb.toString();
+						getmTextBean().setText(debugMessageCache);
+					}
+				
+				});
+			}
+	        //it is either called by server or by client 1 -- meaning server down, 2 -- meaning client down,
+			@Override
+			public void notifyErrors(int errCode) {
+				if (errCode == 1) {
+					//clean up and restart
+					if (server != null) {
+						server.cleanUp();
+						server = null;
+						initAndPostForServer();
+					}
+				} else if (errCode == 2) {
+					if (client != null) {
+						client.cleanUp();
+						client = null;
+						//note we don' restart client for now
+					}
+				}
+			}
+		};
 		mhThread = new HandlerThread("mServiceHandlerThread", android.os.Process.THREAD_PRIORITY_BACKGROUND);
 		mhThread.start();
-		
 		mServiceLooper = mhThread.getLooper();
 		mServiceHandler = new ServiceHandler(mServiceLooper);
-//		new Thread( new Runnable() {
-//			@Override
-//			public void run() {
-//				while (mServiceLooper == null) {//block until have valid looper
-//					try {
-//						Log.i(TAG, "we are stuck until looper initialized!!");
-//						Thread.sleep(1000);
-//					} catch (InterruptedException e) {
-//						e.printStackTrace();
-//					}
-//				}
-				
-//			}
-//			
-//		}).start();
 	}
 	
 	@Override
@@ -119,13 +171,7 @@ public class ChatService extends Service {
 				if (SERVER_TYPE.equals(bundle.getString(REQ_TYPE))){	
 					//start a Server Job
 					Message msg = mServiceHandler.obtainMessage(SERVER);
-					msg.arg1 = startId;
-					mServiceHandler.sendMessage(msg);
-					
-				} else if (CLIENT_TYPE.equals(bundle.getString(REQ_TYPE))) {
-					//start a Client Job
-					Message msg = mServiceHandler.obtainMessage(CLIENT);
-					msg.arg1 = startId;
+					//msg.arg1 = startId;
 					mServiceHandler.sendMessage(msg);
 				}
 			}
@@ -133,17 +179,25 @@ public class ChatService extends Service {
 		return START_STICKY;
 	}
 	
-	
-	//since we cann't serialize/parcelable interfaces so have to use binder to pass local global var
 	//call this only in OnCreate
-	public void initAll(Handler mhdl, ChatServer.UICallbacks ucb) {
-		mMainHandler = mhdl;
-		mUICallback = ucb;
+	public void initAll(final TextView debugView) {
+		setmTextBean(debugView);
 	}
 	//to ensure nItem is initialized before ServiceHandler Loop need to send message here 
-	public void initAndPostForClient(NsdServiceInfo nItem) {
+	// count is the number of times retrying send the Request for Client in case of error
+	public void initAndPostForClient(final NsdServiceInfo nItem, final int count) {
 		mNsdItem = nItem;
 		Message msg = mServiceHandler.obtainMessage(CLIENT, (Object)nItem);
+		msg.arg1 = count;
+		mServiceHandler.sendMessage(msg);
+	}
+	//private method used internally to retry connection for Client, msg is assumed client message
+	private void initAndPostForClient(Message msg) {
+		mServiceHandler.sendMessage(msg);
+		
+	}
+	public void initAndPostForServer() {
+		Message msg = mServiceHandler.obtainMessage(SERVER);
 		mServiceHandler.sendMessage(msg);
 	}
 	

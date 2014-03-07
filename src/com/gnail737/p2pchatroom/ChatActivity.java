@@ -27,9 +27,10 @@ import android.widget.Switch;
 import android.widget.TextView;
 
 public class ChatActivity extends Activity {
+	protected static final int NUM_OF_RETRIES = 3;
 	private final String TAG = "ChatActiivty";
 	Handler mainHandler;
-	ChatServer.UICallbacks mCallbacks;
+	//ChatServer.UICallbacks mCallbacks;
 	NsdHelper nsdHelper;
 	TextView debugView;
 	//ListView listView;
@@ -42,7 +43,8 @@ public class ChatActivity extends Activity {
 		public void onServiceConnected(ComponentName className, IBinder service) {
 			mBoundService = ((ChatService.ChatBinder)service).getService();
 			Log.i(TAG, "Service is bounded!!!");
-			mBoundService.initAll(mainHandler, mCallbacks);
+			mBoundService.initAll(debugView);
+			debugView.setText(mBoundService.copyOfDebugCache());
 		}
 		public void onServiceDisconnected(ComponentName className) {
 			mBoundService = null;
@@ -71,7 +73,6 @@ public class ChatActivity extends Activity {
 		startService(i);
 	}
 	
-	String debugMessageCache = "\n";
 	public static int PORT = 5134;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -138,42 +139,28 @@ public class ChatActivity extends Activity {
 			private String TAG = "ChatActivity";
 			@Override
 			public void notifyRegistrationComplete() {
-				//now we are ready to start a server
-				startChatRoomService(ChatService.SERVER_TYPE);
+				//only run server when neccessary
+				if (!mBoundService.hasServerOrClient())
+					startChatRoomService(ChatService.SERVER_TYPE);
 			}
 			@Override
 			public void notifyDiscoveredOneItem(final NsdServiceInfo NsdItem) {
 				Log.i(TAG, " trying to connect to address" + NsdItem.getHost().toString()+" : "+NsdItem.getPort());
-			    mBoundService.initAndPostForClient(NsdItem);
-			    //don't need to use startCommand to launch client because the timing of NsdItem initialization is uncertain 
-				//startChatRoomService(ChatService.CLIENT_TYPE);
-				
-//				List<NsdServiceInfo> mList = nsdHelper.getmServiceList();
-//				mAdapter.setChatterList(mList);
-//				mAdapter.notifyDataSetChanged();
-//				listView.postInvalidate();
+			    mBoundService.initAndPostForClient(NsdItem, NUM_OF_RETRIES);
 			}
 			@Override
 			public void outputDebugMessage(final String msg) {
-				StringBuilder sb = new StringBuilder(debugMessageCache);
+				if (mBoundService == null) return;
+				StringBuilder sb = new StringBuilder(mBoundService.copyOfDebugCache().toString());
 				sb.append("\n"+msg);
-				debugMessageCache = sb.toString();
-				debugView.setText(debugMessageCache);
-				
+				//debugMessageCache = sb.toString();
+				debugView.setText(sb.toString());	
 			}
 		};
 
 		nsdHelper = new NsdHelper(this, mainHandler, mListener);
-		
-		mCallbacks = new ChatServer.UICallbacks() {
-			@Override
-			public void sendMessageToUI(String msg) {
-				StringBuilder sb = new StringBuilder(debugMessageCache);
-				sb.append("\n"+msg);
-				debugMessageCache = sb.toString();
-				debugView.setText(debugMessageCache);
-			}
-		};
+		//start server just in case
+		startChatRoomService(ChatService.SERVER_TYPE);
     }
 
 
