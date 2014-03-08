@@ -72,7 +72,7 @@ public class ChatNetResourceBundle {
 	//1) initialize Socket and Streams then cache them 
 	public ChatNetResourceBundle(Socket sock) throws IOException {
 		mSocket = sock;
-		UID = sock.getInetAddress().getHostAddress();
+		UID = new String(sock.getInetAddress().getHostAddress());
 		if (!openInStream()) {
 			
 			throw new IOException();
@@ -84,15 +84,16 @@ public class ChatNetResourceBundle {
 		}
 	}
 	//2) create new instance of this class to pass to Event Looper at that time we already have socket and streams cached
-	public ChatNetResourceBundle(Socket sock, BufferedReader in, PrintWriter out, String msg) {
+	public ChatNetResourceBundle(Socket sock, BufferedReader in, PrintWriter out, String msg, String uid) {
 		mSocket = sock;
 		inStream = in;
 		outStream = out;
 		message = msg;
+		UID = uid;
 	}
 	//return an exact copy 
 	public static ChatNetResourceBundle clone(ChatNetResourceBundle o) {
-		return new ChatNetResourceBundle(o.getmSocket(), o.getInStream(), o.getOutStream(), o.getMessage());
+		return new ChatNetResourceBundle(o.getmSocket(), o.getInStream(), o.getOutStream(), o.getMessage(), o.getUID());
 	}
 	
 	//methods to open and cache In/Out NetStream object

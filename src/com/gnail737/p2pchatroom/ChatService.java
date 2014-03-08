@@ -96,6 +96,7 @@ public class ChatService extends Service {
 				} catch(IOException e) {
 					Log.e(TAG, "Client Socket Initialization Error!!");
 					e.printStackTrace();
+					if (client == null) return;
 					client.cleanUp();
 					client = null;
 					//trying to reinit client but only for a 3 times
