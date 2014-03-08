@@ -13,9 +13,18 @@ public class ChatClient extends ChatServer{
 
 	private final String TAG = "ChatClient";
 	ChatNetResourceBundle chatResource = null;
+	
+	public ChatNetResourceBundle getChatResource() {
+		return chatResource;
+	}
 	public ChatClient(UICallbacks calls) {
-		
 		super(calls);
+		
+	}
+	@Override
+	protected void initLoopers() {
+		if (sh != null &&sh.isAlive()) return;
+		if (rh != null &&rh.isAlive()) return;
 		sh = new SenderHandler(new SenderHandler.HandlerCallbacks() {
 			@Override
 			public void doneSendingMessage(final String msg) {
@@ -29,9 +38,10 @@ public class ChatClient extends ChatServer{
 				cbs.sendMessageToUI(bundle+" said : "+msg);
 			}
 			@Override
-			public void onReceiverReadingError(int uid) {
+			public void onReceiverReadingError(String uid) {
 				chatResource.cleanUp();
 				chatResource = null;
+				cbs.notifyErrors(2);
 			}
 		});
 		//get Looper ready
@@ -39,6 +49,7 @@ public class ChatClient extends ChatServer{
 		rh.start();
 		sh.getLooper();
 		rh.getLooper();
+		Log.i(TAG, "Client successfully created!!");	
 	}
 	
     protected void init(final Socket serverSock) throws IOException {

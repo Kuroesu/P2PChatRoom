@@ -71,12 +71,7 @@ public class NsdHelper {
 	}
 	
 	private void debug(final String msg) {
-		uiHandler.post(new Runnable() {
-			@Override
-			public void run() {
-				mMainThreadListener.outputDebugMessage(msg);
-			}
-		});
+		mMainThreadListener.outputDebugMessage(msg);
 	}
 	private void initNsd() {
 		initDiscoveryListener();

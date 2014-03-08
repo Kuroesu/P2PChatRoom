@@ -85,6 +85,11 @@ public class ChatService extends Service {
 			else if (msg.what == CLIENT) {//do client initialization
 				mNsdItem = (NsdServiceInfo)msg.obj;
 				try {
+					//check to see if we already connected to the same server
+					if (client!= null 
+						&& mNsdItem.getHost().getHostAddress().equalsIgnoreCase(client.getChatResource().getUID())) {
+						return;
+					}
 					Socket serverSock = new Socket(mNsdItem.getHost(), mNsdItem.getPort()); 
 					client = new ChatClient(mUICallback);
 					client.init(serverSock);
@@ -125,16 +130,7 @@ public class ChatService extends Service {
 			@Override
 			public void sendMessageToUI(final String msg) {
 				//this must run on UI thread
-				new Handler(Looper.getMainLooper()).post(new Runnable() {
-					@Override
-					public void run() {
-						StringBuilder sb = new StringBuilder(debugMessageCache);
-						sb.append("\n"+msg);
-						debugMessageCache = sb.toString();
-						getmTextBean().setText(debugMessageCache);
-					}
-				
-				});
+				outputDebugMessageToUI(msg);
 			}
 	        //it is either called by server or by client 1 -- meaning server down, 2 -- meaning client down,
 			@Override
@@ -211,6 +207,19 @@ public class ChatService extends Service {
 		super.onDestroy();
 	}
 	
+	public void outputDebugMessageToUI(final String msg) {
+		//this must run on UI thread
+		new Handler(Looper.getMainLooper()).post(new Runnable() {
+			@Override
+			public void run() {
+				StringBuilder sb = new StringBuilder(debugMessageCache);
+				sb.append("\n"+msg);
+				debugMessageCache = sb.toString();
+				if (getmTextBean() == null) return;
+				getmTextBean().setText(debugMessageCache);
+			}
+		});
+	}
 	//following are classes used for communicating with activity
 	public void postMessageToServer(final String str) {
 		if (server != null)

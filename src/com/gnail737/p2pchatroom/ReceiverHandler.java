@@ -25,7 +25,7 @@ public class ReceiverHandler extends HandlerThread {
      
      public interface HandlerCallbacks {
     	 void hadReceivedNewMessage(final String bundle, final String message);
-		 void onReceiverReadingError(int uid);
+		 void onReceiverReadingError(final String uid);
      }
 		
 	    //main worker method

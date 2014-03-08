@@ -16,7 +16,7 @@ import android.util.Log;
 public class ChatNetResourceBundle {
 	private static final String TAG = "ChatNetResourceBundle";
     //UID will be used as HashMap's key
-	int UID = 0;
+	String UID = "NULL";
 
 	Socket mSocket = null;
 
@@ -64,7 +64,7 @@ public class ChatNetResourceBundle {
 		return message;
 	}
 	
-	public int getUID() {
+	public String getUID() {
 		return UID;
 	}
 	
@@ -72,7 +72,7 @@ public class ChatNetResourceBundle {
 	//1) initialize Socket and Streams then cache them 
 	public ChatNetResourceBundle(Socket sock) throws IOException {
 		mSocket = sock;
-		UID = (int) (new Date()).getTime();
+		UID = sock.getInetAddress().getHostAddress();
 		if (!openInStream()) {
 			
 			throw new IOException();

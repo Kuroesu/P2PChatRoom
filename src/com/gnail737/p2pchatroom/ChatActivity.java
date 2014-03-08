@@ -151,10 +151,7 @@ public class ChatActivity extends Activity {
 			@Override
 			public void outputDebugMessage(final String msg) {
 				if (mBoundService == null) return;
-				StringBuilder sb = new StringBuilder(mBoundService.copyOfDebugCache().toString());
-				sb.append("\n"+msg);
-				//debugMessageCache = sb.toString();
-				debugView.setText(sb.toString());	
+				mBoundService.outputDebugMessageToUI(msg);	
 			}
 		};
 
