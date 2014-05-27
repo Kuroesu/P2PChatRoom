@@ -128,7 +128,7 @@ public class NsdHelper {
 				if (pServiceName.equalsIgnoreCase(serviceInfo.getServiceName())) {
 					//here need to reset our private ServiceName to signal 
 					//Machine is no longer broadcasting itself
-					pServiceName = null;
+					//pServiceName = "NULL";
 				}
 			}
 			
@@ -193,16 +193,16 @@ public class NsdHelper {
 					Log.d(TAG, "unknown service type found!!");
 					debug("unknown service type found!!");
 //              DEBUG  temp relax to allow self loop messaging
-//				} else if (service.getServiceName().equals(pServiceName)) {
-//					//arrived here because exact same machine who started Discovery Request found
-//					Log.d(TAG, "Same machine found!!");
-//					debug("Same machine found!!");
+				} else if (service.getServiceName().equals(pServiceName)) {
+					//arrived here because exact same machine who started Discovery Request found
+					Log.d(TAG, "Same machine found!!");
+					debug("Same machine found!!");
 				} else if (service.getServiceName().contains(mServiceName)) {
 					//arrived here when diff machine using the same app is found through Discovery
 					Log.d(TAG, "found a new P2P service -[ "+service+" ]..");
 					//debug("found a new P2P service -[ "+service+" ]..");
 					// only resolve if it is the server
-					if (service.getServiceName().equals(mServiceName))
+					//if (service.getServiceName().equals(mServiceName))
 						manager.resolveService(service, mResolveListener);
 				}
 				

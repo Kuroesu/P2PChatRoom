@@ -20,10 +20,14 @@ public class ChatServer {
 	protected SenderHandler sh;
 	protected final UICallbacks cbs; 
     private final String TAG = "ChatServer";
-    Thread mLoopThread = null;
-    Socket clientSock = null;
+    private Thread mLoopThread = null;
+    public Thread getmLoopThread() {
+		return mLoopThread;
+	}
+
+	private Socket clientSock = null;
 	//use this map to maintain globally available client lists, must be synchronized
-    private Map<String, ChatNetResourceBundle> mChatClientResources;
+    protected Map<String, ChatNetResourceBundle> mChatClientResources;
 	private ServerSocket sSock = null;
     
 	public ChatServer(final UICallbacks calls) {
@@ -51,8 +55,11 @@ public class ChatServer {
 			@Override
 			public void onReceiverReadingError(final String uid) {
 				//the pipe is broken, need to remove
-				mChatClientResources.get(String.valueOf(uid)).cleanUp();
-				mChatClientResources.remove(String.valueOf(uid));
+				if (mChatClientResources.containsKey(uid)) {
+					mChatClientResources.get(String.valueOf(uid)).cleanUp();
+					mChatClientResources.remove(String.valueOf(uid));
+					//cbs.notifyErrors(1);
+				}
 			}
 		});
 		sh.start();
@@ -111,7 +118,7 @@ public class ChatServer {
 							if (cbs != null) //there are chances that cbs is null we cannot avoid it
 								cbs.sendMessageToUI("New client connected!! ["+clientSock.getInetAddress().toString()+"]");
 							//for each client to maintain a place in event loop, the first message must be fired to trigger subsequent messages.
-							rh.postNewMessage(cnrb);
+							//rh.postNewMessage(cnrb);
 						}while (true);
 					} catch (IOException e) { //if we have exception we are out!!
 							Log.e(TAG, "having exception in accepting Loops now we are out!!!");
@@ -143,6 +150,7 @@ public class ChatServer {
 		for (Iterator<String> i = keySet.iterator(); i.hasNext(); ) {
 			mChatClientResources.get(i.next()).cleanUp();
 		}
+		mChatClientResources.clear();
 	}
 	
 	public void sendMessages( final String msg) {

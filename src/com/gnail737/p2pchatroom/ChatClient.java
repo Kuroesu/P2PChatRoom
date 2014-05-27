@@ -4,13 +4,22 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
+import com.gnail737.p2pchatroom.ChatServer.UICallbacks;
+
+import android.net.nsd.NsdServiceInfo;
 import android.os.Handler;
 import android.util.Log;
 
 public class ChatClient extends ChatServer{
-
+	/* following are inherited members from ChatServer
+	protected ReceiverHandler rh;
+	protected SenderHandler sh;
+	protected final UICallbacks cbs;
+	protected Map<String, ChatNetResourceBundle> mChatClientResources;
+	**************************************************/
 	private final String TAG = "ChatClient";
 	ChatNetResourceBundle chatResource = null;
 	
@@ -39,9 +48,12 @@ public class ChatClient extends ChatServer{
 			}
 			@Override
 			public void onReceiverReadingError(String uid) {
-				chatResource.cleanUp();
-				chatResource = null;
-				cbs.notifyErrors(2);
+				if (mChatClientResources.containsKey(uid)) {
+					mChatClientResources.get(uid).cleanUp();
+					mChatClientResources.remove(uid);
+					//cbs.notifyErrors(2);
+				}
+				
 			}
 		});
 		//get Looper ready
@@ -52,13 +64,20 @@ public class ChatClient extends ChatServer{
 		Log.i(TAG, "Client successfully created!!");	
 	}
 	
-    protected void init(final Socket serverSock) throws IOException {
-		ChatNetResourceBundle cnrb = null;
+    protected void init(final NsdServiceInfo nsdItem) throws IOException {
+    	//check to see if we already connected to the same server
+		if (mChatClientResources.containsKey(nsdItem.getHost().getHostAddress())) {
+			return;
+		}
+		ChatNetResourceBundle cnrb;
+		Socket serverSock = new Socket(nsdItem.getHost(), nsdItem.getPort());
 		cnrb = new ChatNetResourceBundle(serverSock);
-		chatResource = ChatNetResourceBundle.clone(cnrb);
+		//chatResource = ChatNetResourceBundle.clone(cnrb);
+		//add new chat resource to hash map
+		mChatClientResources.put(new String(cnrb.getUID()), cnrb);
 		//push first message for receiving looper 
 		if (cnrb != null) {
-			rh.postNewMessage(cnrb);
+			rh.postNewMessage(cnrb.clone(cnrb));
 		}	
     }
     
@@ -71,39 +90,16 @@ public class ChatClient extends ChatServer{
 			  ChatNetResourceBundle bundle = ChatNetResourceBundle.clone(chatResource);
 			  bundle.setMessage(msg);
 			  sh.postNewMessage(bundle);
-		  }
+		}
 	}
-    @Override
-    public void cleanUp() {
-    	if (chatResource != null) {
-    		chatResource.cleanUp();
-			chatResource = null;
-    	}
-    	//just need to exit looper 
-    	sh.cleanUp();
-		rh.cleanUp();
-    }
-//	Socket mSocket;
-//	public synchronized Socket getmSocket() {
-//		return mSocket;
-//	}
-//
-//	public synchronized void setmSocket(Socket mSocket) {
-//		this.mSocket = mSocket;
-//	}
-
-//	public ChatClient(UICallbacks cbs, Socket sock) {
-//		super(cbs);
-//		mSocket = sock;
-//	}
-	
-//	@Override
-//	public void run() { //unlike server, client only need to run once. coz sender and receiving is doing loop job
-//		//before call run make sure have a socket to communicate with
-//		if (mSocket == null) return;
-//		
-//		mClientSocket = mSocket;
-//		prepareSendReceiveThreads();
-//		
-//	}
+//    @Override
+//    public void cleanUp() {
+//    	if (chatResource != null) {
+//    		chatResource.cleanUp();
+//			chatResource = null;
+//    	}
+//    	//just need to exit looper 
+//    	sh.cleanUp();
+//		rh.cleanUp();
+//    }
 }

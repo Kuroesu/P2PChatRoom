@@ -85,14 +85,12 @@ public class ChatService extends Service {
 			else if (msg.what == CLIENT) {//do client initialization
 				mNsdItem = (NsdServiceInfo)msg.obj;
 				try {
-					//check to see if we already connected to the same server
-					if (client!= null 
-						&& mNsdItem.getHost().getHostAddress().equalsIgnoreCase(client.getChatResource().getUID())) {
-						return;
+					if (client == null){
+						client = new ChatClient(mUICallback);
 					}
-					Socket serverSock = new Socket(mNsdItem.getHost(), mNsdItem.getPort()); 
-					client = new ChatClient(mUICallback);
-					client.init(serverSock);
+					if (client != null) {
+						client.init(mNsdItem);
+					}
 				} catch(IOException e) {
 					Log.e(TAG, "Client Socket Initialization Error!!");
 					e.printStackTrace();
@@ -237,6 +235,6 @@ public class ChatService extends Service {
 	}
 	
 	public boolean hasServerOrClient() {
-		return (server != null || client != null);
+		return (server != null && server.getmLoopThread()!= null && server.getmLoopThread().isAlive());
 	}
 }

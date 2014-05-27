@@ -94,13 +94,10 @@ public class ChatActivity extends Activity {
         sendBtn.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				//debuging code
-				//mBoundService.toastOk();
 				//Null check is done inside Service Object
 				
 			    mBoundService.postMessageToServer(et.getText().toString());
-				mBoundService.postMessageToClient(et.getText().toString());
-				
+				//mBoundService.postMessageToClient(et.getText().toString());
 				if (mBoundService.hasServerOrClient()) {
 					et.setText("");
 				}
